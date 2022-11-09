@@ -19,7 +19,7 @@ import matplotlib.pyplot as plt
 
 def create_mesh(plot=True):
     vertices = [[0, 0], [1, 0], [2, 1], [0.5, 1]]
-    t = tr.triangulate({'vertices': vertices}, 'qa0.005')
+    t = tr.triangulate({'vertices': vertices}, 'eqa0.005')
 
     if plot:
         ax = plt.axes()
@@ -61,18 +61,19 @@ class Poisson(femto.Model):
             
 
 if __name__ == '__main__':
-    quad_order = 2
+    quad_order = 3
     n_plot = 41
     
-    ref_triangle = elements.TriangleP1(quad_order=quad_order)
+    ref_triangle_P1 = elements.TriangleP1(quad_order=quad_order)
+    ref_triangle_P2 = elements.TriangleP2(quad_order=quad_order)
 
     t_dict = create_mesh(plot=True)
-    mesh = mesher.TriMesh(*mesher.triangle_to_femto(t_dict), ref_triangle)
+    mesh = mesher.TriMesh(*mesher.triangle_to_femto(t_dict), ref_triangle_P1)
 
-    uh = function_spaces.P1(mesh, ref_triangle, idx=0)
+    uh = function_spaces.P2(mesh, ref_triangle_P2, idx=0)
     fields = [uh]
     
     model = Poisson(mesh, fields, exact=None)
     model.solve()
     
-    uh.plot(mesh)
+    uh.plot(mesh, plot_type='surface')

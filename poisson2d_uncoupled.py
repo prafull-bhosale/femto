@@ -84,14 +84,15 @@ if __name__ == '__main__':
     n_side = 20
     quad_type = 'triangle'
     # quad_type = 'quadrilateral'
-    quad_order = 2
+    quad_order = 3
     n_plot = 41
 
     if quad_type == 'triangle':
-        ref_elt = elements.TriangleP1(quad_order=quad_order)
-        mesh = mesher.UnitSquareTri(nx=n_side, ny=n_side, reference=ref_elt)
-        u1h = function_spaces.P1(mesh, ref_elt, idx=0)
-        u2h = function_spaces.P1(mesh, ref_elt, idx=1)
+        ref_elt_P1 = elements.TriangleP1(quad_order=quad_order)
+        ref_elt_P2 = elements.TriangleP2(quad_order=quad_order)
+        mesh = mesher.UnitSquareTri(nx=n_side, ny=n_side, reference=ref_elt_P1)
+        u1h = function_spaces.P2(mesh, ref_elt_P2, idx=0)
+        u2h = function_spaces.P2(mesh, ref_elt_P2, idx=1)
     elif quad_type == 'quadrilateral':
         ref_elt = elements.QuadP1(quad_order=quad_order)
         mesh = mesher.UnitSquareQuad(nx=n_side, ny=n_side, reference=ref_elt)

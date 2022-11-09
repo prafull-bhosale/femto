@@ -90,12 +90,12 @@ class PlaneStress(femto.Model):
 if __name__ == '__main__':
     L = 25.0
     W_half = 0.5
-    nx = 250
+    nx = 100
     ny = 20
     
     quad_type = 'triangle'
     # quad_type = 'quadrilateral'
-    quad_order = 2
+    quad_order = 3
     
     E = 1e5
     nu = 0.3
@@ -103,12 +103,13 @@ if __name__ == '__main__':
     mu = E/(2*(1 + nu))
     
     if quad_type == 'triangle':
-        ref_elt = elements.TriangleP1(quad_order=quad_order)
-        mesh = mesher.UnitSquareTri(nx=nx, ny=ny, reference=ref_elt)
+        ref_elt_P1 = elements.TriangleP1(quad_order=quad_order)
+        ref_elt_P2 = elements.TriangleP2(quad_order=quad_order)
+        mesh = mesher.UnitSquareTri(nx=nx, ny=ny, reference=ref_elt_P1)
         mesh.nodes[:, 0] *= L
         mesh.nodes[:, 1] = W_half*(2*mesh.nodes[:, 1] - 1.0)
-        uh = function_spaces.P1(mesh, ref_elt, idx=0)
-        vh = function_spaces.P1(mesh, ref_elt, idx=1)
+        uh = function_spaces.P2(mesh, ref_elt_P2, idx=0)
+        vh = function_spaces.P2(mesh, ref_elt_P2, idx=1)
     elif quad_type == 'quadrilateral':
         ref_elt = elements.QuadP1(quad_order=quad_order)
         mesh = mesher.UnitSquareQuad(nx=nx, ny=ny, reference=ref_elt)

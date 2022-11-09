@@ -10,7 +10,8 @@ October 2022
 import numpy as np
 from scipy.sparse.linalg import spsolve
 from scipy.sparse import coo_matrix
-from numba import njit
+from scipy.special import comb
+from copy import deepcopy
 
 
 class FiniteElement:
@@ -67,15 +68,19 @@ class FiniteElement:
 
 class Mesh:
     def __init__(self, dim=1, 
-                 nodes=None, elements=None, boundary=None,
-                 reference=None):
+                 nodes=None, edges=None, facets=None, elements=None, 
+                 boundary=None, reference=None):
         self.dim = dim
         self.nodes = nodes
+        self.edges = edges
+        self.facets = facets
         self.elements = elements
         self.boundary = boundary
         self.reference = reference
         
         self.n_nodes = len(nodes)
+        self.n_edges = len(edges)
+        self.n_facets = len(facets)
         self.n_elements = len(elements)
 
     def find_element(self, x):
@@ -104,14 +109,20 @@ class Mesh:
 
 
 class FunctionSpace:
-    def __init__(self, reference, n_dof, idx=0):
+    def __init__(self, mesh, reference, n_dof, idx=0):
         self.idx = idx
+        self.mesh = deepcopy(mesh)
         self.reference = reference
         self.n_dof = n_dof
         self.dof = np.array([np.nan for _ in range(n_dof)])
         self.dbc = None
         self.n_solve = n_dof
         self.n_dirichlet = 0
+        
+        self._add_dofs_to_mesh()
+        
+    def _add_dofs_to_mesh(self):
+        pass
 
     def eval(self, mesh, x, D=None):
         raise NotImplementedError()
@@ -151,14 +162,13 @@ class Model:
         self.stiffness = None
         self.load = None
 
+    # Works only for point DOFs!
     def apply_dirichlet_bc(self):
         if self.dirichlet is not None:
             for i, u in enumerate(self.fields):
-                in_bc = lambda x: self.dirichlet(i, *x)
-
                 bc = []
-                for j in self.mesh.boundary:
-                    on_bdy, val = in_bc(self.mesh.nodes[j])
+                for j in u.mesh.boundary[0]:
+                    on_bdy, val = self.dirichlet(i, *u.mesh.nodes[j])
                     if on_bdy:
                         bc.append([j, val])
 
@@ -169,17 +179,16 @@ class Model:
                 u.n_dirichlet = len(bc)
                 u.n_solve = u.n_dof - u.n_dirichlet
 
+    # Works only for point DOFs!
     def apply_neumann_bc(self):
         '''
         self.renumber() needs to be called before this method is called!
         '''
         if self.neumann is not None:
             for i, u in enumerate(self.fields):
-                in_bc = lambda x: self.neumann(i, *x)
-
                 bc = []
-                for j in self.mesh.boundary:
-                    on_bdy, val = in_bc(self.mesh.nodes[j])
+                for j in u.mesh.boundary[0]:
+                    on_bdy, val = self.neumann(i, *u.mesh.nodes[j])
                     if on_bdy:
                         bc.append([j, val])
 
@@ -230,15 +239,14 @@ class Model:
         
         affine = self.mesh.reference.affine
         if affine:
-            # J = self.mesh.Jacobian(elt_id, self.mesh.reference.qpts[0])
             J = self.mesh.Jacobian(elt_id, None)
             vol = np.abs(np.linalg.det(J))
             J = np.linalg.inv(J).transpose()
 
-        for i_field, field_i in enumerate(self.fields):
-            n_dof_elt_i = field_i.reference.n_dof
-            n_quad = field_i.reference.n_quad
-            xis = field_i.reference.qpts
+        for i_field, ui in enumerate(self.fields):
+            n_dof_elt_i = ui.reference.n_dof
+            n_quad = ui.reference.n_quad
+            xis = ui.reference.qpts
             
             if not affine:
                 Js = []
@@ -258,30 +266,30 @@ class Model:
             for i in range(n_dof_elt_i):
                 ii = self.cum_dof_elt[i_field] + i
                 
-                for j_field, field_j in enumerate(self.fields):
-                    n_dof_elt_j = field_j.reference.n_dof
+                for j_field, uj in enumerate(self.fields):
+                    n_dof_elt_j = uj.reference.n_dof
                 
                     for j in range(n_dof_elt_j):
                         jj = self.cum_dof_elt[j_field] + j
                         gs = np.zeros(n_quad)
                 
                         for k in range(n_quad):
-                            fi = field_i.reference.phi_q[i, k]
-                            fj = field_j.reference.phi_q[j, k] 
+                            fi = ui.reference.phi_q[i, k]
+                            fj = uj.reference.phi_q[j, k] 
                             if affine:
-                                dfi = J @ field_i.reference.d_phi_q[i, :, k]
-                                dfj = J @ field_j.reference.d_phi_q[j, :, k]
+                                dfi = J @ ui.reference.d_phi_q[i, :, k]
+                                dfj = J @ uj.reference.d_phi_q[j, :, k]
                                 gs[k] = self.stiffness_kernel(
                                     i_field, j_field, xs[k], fi, fj, dfi, dfj
                                 ) * vol
                             else:
-                                dfi = Js[k] @ field_i.reference.d_phi_q[i, :, k]
-                                dfj = Js[k] @ field_j.reference.d_phi_q[j, :, k]
+                                dfi = Js[k] @ ui.reference.d_phi_q[i, :, k]
+                                dfj = Js[k] @ uj.reference.d_phi_q[j, :, k]
                                 gs[k] = self.stiffness_kernel(
                                     i_field, j_field, xs[k], fi, fj, dfi, dfj
                                 ) * vols[k]
                         
-                        ke[ii, jj] = field_i.reference.integrate_gauss(gs)
+                        ke[ii, jj] = ui.reference.integrate_gauss(gs)
                         
         return ke
            
@@ -290,7 +298,6 @@ class Model:
         
         affine = self.mesh.reference.affine
         if affine:
-            # J = self.mesh.Jacobian(elt_id, self.mesh.reference.qpts[0])
             J = self.mesh.Jacobian(elt_id, None)
             vol = np.abs(np.linalg.det(J))
             J = np.linalg.inv(J).transpose()
@@ -322,17 +329,19 @@ class Model:
         II = []
         JJ = []
         V = []
+        
+        for i_elt in range(self.mesh.n_elements):
+            ke = self.reference_stiffness_matrix(i_elt)
 
-        for i_field in range(self.n_fields):
-            for i_elt, elt in enumerate(self.mesh.elements):
-                ke = self.reference_stiffness_matrix(i_elt)
-
+            for i_field, ui in enumerate(self.fields):
+                elt_i = ui.mesh.elements[i_elt]
                 for i in range(self.n_dof_elt[i_field]):
-                    ii = self.cum_dof[i_field] + elt[i]
+                    ii = self.cum_dof[i_field] + elt_i[i]
                     
-                    for j_field in range(self.n_fields):
+                    for j_field, uj in enumerate(self.fields):
+                        elt_j = uj.mesh.elements[i_elt]
                         for j in range(self.n_dof_elt[j_field]):
-                            jj = self.cum_dof[j_field] + elt[j]
+                            jj = self.cum_dof[j_field] + elt_j[j]
                             
                             II.append(self.node_idx[ii])
                             JJ.append(self.node_idx[jj])
@@ -345,10 +354,11 @@ class Model:
     def assemble_load(self):
         F = np.zeros(self.n_tot)
 
-        for i_field in range(self.n_fields):
-            for i_elt, elt in enumerate(self.mesh.elements):
-                fe = self.reference_load_vector(i_elt)
-
+        for i_elt in range(self.mesh.n_elements):
+            fe = self.reference_load_vector(i_elt)
+            
+            for i_field, ui in enumerate(self.fields):
+                elt = ui.mesh.elements[i_elt]
                 for i in range(self.n_dof_elt[i_field]):
                     ii = self.cum_dof[i_field] + elt[i]
                     F[self.node_idx[ii]] += fe[self.cum_dof_elt[i_field] + i]
@@ -358,10 +368,10 @@ class Model:
     def solve(self):
         self.apply_dirichlet_bc()
         self.renumber()
-
+        
         self.assemble_stiffness()
         self.stiffness = self.stiffness.tocsr()
-
+        
         self.assemble_load()
         self.apply_neumann_bc()
 
