@@ -65,6 +65,38 @@ class FiniteElement:
                 for k in range(self.n_quad):
                     self.d_phi_q[i, j, k] = self.d_phi(i, j, *self.qpts[k])
 
+    ### Beware: This code written by a novice programmer using GitHub Copilot OpenAI Codex ###
+    # get shape functions at quadrature points
+    def get_phi_gauss_pts(self):
+        # return phi_gauss_pts if it exists to avoid recomputing the shape functions
+        # at the quadrature points
+        if hasattr(self, 'phi_gauss_pts'):
+            return self.phi_gauss_pts
+    
+        self.phi_gauss_pts = np.zeros((self.n_quad, self.n_dof))
+        for i in range(self.n_quad):
+            for j in range(self.n_dof):
+                self.phi_gauss_pts[i, j] = self.phi(j, self.qpts[i, 0], self.qpts[i, 1])
+        
+        return self.phi_gauss_pts # n_quad x n_dof
+
+    # get derivatives of shape functions at quadrature points
+    def get_d_phi_gauss_pts(self):
+        # return d_phi_gauss_pts if it exists to avoid recomputing the shape function
+        # derivatives at the quadrature points
+        if hasattr(self, 'd_phi_gauss_pts'):
+            return self.d_phi_gauss_pts
+    
+        self.d_phi_gauss_pts = np.zeros((self.n_quad, self.dim, self.n_dof))
+        for i in range(self.n_quad):
+            for j in range(self.dim):
+                for k in range(self.n_dof):
+                    self.d_phi_gauss_pts[i, j, k] = self.d_phi(k, j, self.qpts[i, 0], self.qpts[i, 1])
+        
+        return self.d_phi_gauss_pts # n_quad x dim x n_dof
+
+    # AI written code ends here
+
 
 class Mesh:
     def __init__(self, dim=1, 
@@ -104,8 +136,58 @@ class Mesh:
                     J[i, j] += nodes[k, i]*self.reference.d_phi(k, j, *xi)
         return J
 
+    # # compute Jacobian at quadrature points
+    # def get_Jacobian_gauss_pts(self, elt_id):
+    #     nodes = self.nodes[self.elements[elt_id]] # n_dof x dim
+    #     J = self.reference.get_d_phi_gauss_pts() @ nodes # n_quad x dim x dim
+    #     return J
+
     def get_ref_coords(self, elt_id, x):
         raise NotImplementedError()
+
+    # def integrate_over_element(self, elt_id, func):
+    #     nodes = self.nodes[self.elements[elt_id]] # n_dof x dim
+    #     x = self.reference.get_phi_gauss_pts() @ nodes # n_quad x dim
+    #     J = self.get_Jacobian_gauss_pts(elt_id) # n_quad x dim x dim
+    #     detJ = np.linalg.det(J) # n_quad
+    #     intgl = np.sum(detJ * func(x) * self.reference.qwts)  # scalar
+    
+    #     return intgl
+
+    def integrate_over_element(self, elt_id, func):
+        intgl = 0.0
+        for i in range(self.reference.n_quad):
+            x = self.get_coords(elt_id, self.reference.qpts[i])
+            J = self.Jacobian(elt_id, self.reference.qpts[i])
+            detJ = np.linalg.det(J)
+            intgl += detJ * func(x) * self.reference.qwts[i]
+
+        return intgl
+
+    # # 
+    # def integrate_over_elements(self, elem_ids, func):
+    #     nodes = self.nodes[self.elements[elem_ids]] # n_elements x n_dof x dim
+    #     x = self.reference.get_phi_gauss_pts() @ nodes # n_elements x n_quad x dim
+    #     # convert x to torch tensor
+    #     x = torch.from_numpy(x).float()
+    #     J = self.reference.get_d_phi_gauss_pts()[None, :, :, :] @ nodes[:, None, :, :] # n_elements x n_quad x dim x dim
+    #     detJ = np.linalg.det(J) # n_elements x n_quad
+    #     # convert detJ to torch tensor
+    #     detJ = torch.from_numpy(detJ).float()
+    #     out = func(x) # n_elements x n_quad
+    #     # convert qwts to torch tensor
+    #     qwts = torch.from_numpy(self.reference.qwts).float()
+    #     intgl = torch.sum(detJ * out * qwts, dim=1) # n_elements
+    #     intgl = torch.sum(intgl) # scalar
+
+    #     return intgl
+
+    def get_stuff_GQ_intgl_over_elems(self, elem_ids):
+        nodes = self.nodes[self.elements[elem_ids]] # n_elements x n_dof x dim
+        x = self.reference.get_phi_gauss_pts() @ nodes # n_elements x n_quad x dim
+        J = self.reference.get_d_phi_gauss_pts()[None, :, :, :] @ nodes[:, None, :, :] # n_elements x n_quad x dim x dim
+        detJ = np.linalg.det(J) # n_elements x n_quad
+        return x, detJ, self.reference.qwts
 
 
 class FunctionSpace:
