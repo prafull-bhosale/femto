@@ -114,7 +114,9 @@ def _get_P2_mesh(mesh):
         i_edge = _find_edge(mesh.edges, 
                             mesh.elements[i, (n_vertices - 1)], mesh.elements[i, 0])
         elements[i].append(mesh.n_nodes + i_edge)
-        
+    
+    elements = np.array(elements, dtype=int)
+    
     mesh_P2 = femto.Mesh(mesh.dim, nodes, mesh.edges, mesh.facets,
                          elements, boundary, mesh.reference)
     return mesh_P2

@@ -189,6 +189,12 @@ class Mesh:
         detJ = np.linalg.det(J) # n_elements x n_quad
         return x, detJ, self.reference.qwts
 
+    def get_gauss_pts(self, elem_ids):
+        nodes = self.nodes[self.elements[elem_ids]] # n_elements x n_dof x dim
+        x = self.reference.get_phi_gauss_pts() @ nodes # n_elements x n_quad x dim
+
+        return x
+
 
 class FunctionSpace:
     def __init__(self, mesh, reference, n_dof, idx=0):
