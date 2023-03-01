@@ -11,41 +11,42 @@ import numpy as np
 import femtolib as femto
 
 
+def _get_GL_pts_wts_1d(n_quad):
+    if n_quad == 1:
+        pts = np.array([0.0])
+        wts = np.array([2.0])
+    elif n_quad == 2:
+        xi = 1.0/np.sqrt(3)
+        pts = np.array([-xi, xi])
+        wts = np.array([1.0, 1.0])
+    elif n_quad == 3:
+        xi = np.sqrt(3/5)
+        pts = np.array([-xi, 0, xi])
+        wts = np.array([5/9, 8/9, 5/9])
+    elif n_quad == 4:
+        xi_1 = np.sqrt((3/7) - (2/7)*np.sqrt(6/5))
+        xi_2 = np.sqrt((3/7) + (2/7)*np.sqrt(6/5))
+        w1 = (18 + np.sqrt(30))/36
+        w2 = (18 - np.sqrt(30))/36
+        pts = np.array([-xi_2, -xi_1, xi_1, xi_2])
+        wts = np.array([w2, w1, w1, w2])
+    elif n_quad == 5:
+        xi_1 = np.sqrt(5 - 2*np.sqrt(10/7))/3
+        xi_2 = np.sqrt(5 + 2*np.sqrt(10/7))/3
+        w1 = (322 + 13*np.sqrt(70))/900
+        w2 = (322 - 13*np.sqrt(70))/900
+        pts = np.array([-xi_2, -xi_1, 0, xi_1, xi_2])
+        wts = np.array([w2, w1, 128/225, w1, w2])
+    else:
+        raise Exception("Invalid quadrature order!")
+
+    return pts, wts
+
+
 class Triangle(femto.FiniteElement):
     def __init__(self, n_dof=3, quad_order=2, quad_type='area', affine=True):
         dim = 2
         super().__init__(dim, n_dof, quad_order, quad_type, affine)
-
-    def _get_GL_pts_wts_1d(self, n_quad):
-        if n_quad == 1:
-            pts = np.array([0.0])
-            wts = np.array([2.0])
-        elif n_quad == 2:
-            xi = 1.0/np.sqrt(3)
-            pts = np.array([-xi, xi])
-            wts = np.array([1.0, 1.0])
-        elif n_quad == 3:
-            xi = np.sqrt(3/5)
-            pts = np.array([-xi, 0, xi])
-            wts = np.array([5/9, 8/9, 5/9])
-        elif n_quad == 4:
-            xi_1 = np.sqrt((3/7) - (2/7)*np.sqrt(6/5))
-            xi_2 = np.sqrt((3/7) + (2/7)*np.sqrt(6/5))
-            w1 = (18 + np.sqrt(30))/36
-            w2 = (18 - np.sqrt(30))/36
-            pts = np.array([-xi_2, -xi_1, xi_1, xi_2])
-            wts = np.array([w2, w1, w1, w2])
-        elif n_quad == 5:
-            xi_1 = np.sqrt(5 - 2*np.sqrt(10/7))/3
-            xi_2 = np.sqrt(5 + 2*np.sqrt(10/7))/3
-            w1 = (322 + 13*np.sqrt(70))/900
-            w2 = (322 - 13*np.sqrt(70))/900
-            pts = np.array([-xi_2, -xi_1, 0, xi_1, xi_2])
-            wts = np.array([w2, w1, 128/225, w1, w2])
-        else:
-            raise Exception("Invalid quadrature order!")
-
-        return pts, wts
 
     def init_quadrature(self):
         if self.quad_type == 'area':
@@ -66,7 +67,7 @@ class Triangle(femto.FiniteElement):
             else:
                 raise Exception("Invalid quadrature order!")
         elif self.quad_type == 'duffy':
-            pts_x, wts_x = self._get_GL_pts_wts_1d(self.quad_order)
+            pts_x, wts_x = _get_GL_pts_wts_1d(self.quad_order)
             pts_x = (1 + pts_x)/2
             wts_x = 2*wts_x
             pts = np.zeros((self.quad_order**2, 2))
@@ -245,40 +246,9 @@ class QuadP1(femto.FiniteElement):
         n_dof = 4
         super().__init__(dim, n_dof, quad_order, quad_type, affine)
 
-    def _get_GL_pts_wts_1d(self, n_quad):
-        if n_quad == 1:
-            pts = np.array([0.0])
-            wts = np.array([2.0])
-        elif n_quad == 2:
-            xi = 1.0/np.sqrt(3)
-            pts = np.array([-xi, xi])
-            wts = np.array([1.0, 1.0])
-        elif n_quad == 3:
-            xi = np.sqrt(3/5)
-            pts = np.array([-xi, 0, xi])
-            wts = np.array([5/9, 8/9, 5/9])
-        elif n_quad == 4:
-            xi_1 = np.sqrt((3/7) - (2/7)*np.sqrt(6/5))
-            xi_2 = np.sqrt((3/7) + (2/7)*np.sqrt(6/5))
-            w1 = (18 + np.sqrt(30))/36
-            w2 = (18 - np.sqrt(30))/36
-            pts = np.array([-xi_2, -xi_1, xi_1, xi_2])
-            wts = np.array([w2, w1, w1, w2])
-        elif n_quad == 5:
-            xi_1 = np.sqrt(5 - 2*np.sqrt(10/7))/3
-            xi_2 = np.sqrt(5 + 2*np.sqrt(10/7))/3
-            w1 = (322 + 13*np.sqrt(70))/900
-            w2 = (322 - 13*np.sqrt(70))/900
-            pts = np.array([-xi_2, -xi_1, 0, xi_1, xi_2])
-            wts = np.array([w2, w1, 128/225, w1, w2])
-        else:
-            raise Exception("Invalid quadrature order!")
-
-        return pts, wts
-
     def init_quadrature(self):
         if self.quad_type == 'gauss':
-            pts_x, wts_x = self._get_GL_pts_wts_1d(self.quad_order)
+            pts_x, wts_x = _get_GL_pts_wts_1d(self.quad_order)
             pts = np.zeros((self.quad_order**2, 2))
             wts = np.zeros(self.quad_order**2)
             for j in range(self.quad_order):
@@ -336,5 +306,34 @@ class QuadP1(femto.FiniteElement):
                 return (1 - xi)/4
             else:
                 raise Exception("Invalid coordinate index")
+        else:
+            raise Exception("Invalid shape function index")
+
+
+# linear 1D element
+class LineP1(femto.FiniteElement):
+    def __init__(self, quad_order=2, quad_type='gauss', affine=True):
+        dim = 1
+        n_dof = 2
+        super().__init__(dim, n_dof, quad_order, quad_type, affine)
+
+    def init_quadrature(self):
+        self.qpts, self.qwts = _get_GL_pts_wts_1d(self.quad_order)
+        self.qpts = self.qpts.reshape(-1,1)
+        self.n_quad = self.quad_order
+
+    def phi(self, idx_phi, xi):
+        if idx_phi == 0:
+            return (1 - xi)/2
+        elif idx_phi == 1:
+            return (1 + xi)/2
+        else:
+            raise Exception("Invalid shape function index")
+
+    def d_phi(self, idx_phi, idx_x, xi):
+        if idx_phi == 0:
+            return -1/2
+        elif idx_phi == 1:
+            return 1/2
         else:
             raise Exception("Invalid shape function index")

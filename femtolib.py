@@ -76,7 +76,7 @@ class FiniteElement:
         self.phi_gauss_pts = np.zeros((self.n_quad, self.n_dof))
         for i in range(self.n_quad):
             for j in range(self.n_dof):
-                self.phi_gauss_pts[i, j] = self.phi(j, self.qpts[i, 0], self.qpts[i, 1])
+                self.phi_gauss_pts[i, j] = self.phi(j, *self.qpts[i, :])
         
         return self.phi_gauss_pts # n_quad x n_dof
 
@@ -91,7 +91,7 @@ class FiniteElement:
         for i in range(self.n_quad):
             for j in range(self.dim):
                 for k in range(self.n_dof):
-                    self.d_phi_gauss_pts[i, j, k] = self.d_phi(k, j, self.qpts[i, 0], self.qpts[i, 1])
+                    self.d_phi_gauss_pts[i, j, k] = self.d_phi(k, j, *self.qpts[i, :])
         
         return self.d_phi_gauss_pts # n_quad x dim x n_dof
 

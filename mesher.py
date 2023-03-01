@@ -293,3 +293,60 @@ class UnitSquareQuad(QuadMesh):
         elements = np.array(elements, dtype=int)
 
         super().__init__(nodes, edges, facets, elements, boundary, reference)
+
+
+class LineMesh(femto.Mesh):
+    def __init__(self, nodes, edges, facets, elements, boundary, reference):
+        dim = 1
+        super().__init__(dim, nodes, edges, facets, elements, boundary, reference)
+
+
+class UnitLineMesh(LineMesh):
+    def __init__(self, nx=4, reference=None):
+        self.nx = nx
+        hx = 1.0/nx
+        
+        boundary = []
+        
+        nodes = []
+        node_count = 0
+        bdy_nodes = []
+        tol = 1e-6
+
+        for i in range(nx + 1):
+            x = i*hx
+            nodes.append([x])
+
+            if (   abs(x) <= tol
+                or abs(1 - x) <= tol):
+                bdy_nodes.append(node_count)
+
+            node_count += 1
+
+        nodes = np.array(nodes)
+        bdy_nodes = np.array(bdy_nodes, dtype=int)
+        boundary.append(bdy_nodes)
+        
+        edges = []
+        bdy_edges = []
+        edge_count = 0
+        
+        for i in range(nx):
+            edges.append([i, i + 1])
+            if i == 0:
+                bdy_edges.append(edge_count)
+            edge_count += 1
+        
+        edges = np.array(edges, dtype=int)
+        bdy_edges = np.array(bdy_edges, dtype=int)
+        boundary.append(bdy_edges)
+        
+        facets = edges
+        elements = []
+
+        for i in range(nx):
+            elements.append([i, i + 1])
+
+        elements = np.array(elements, dtype=int)
+
+        super().__init__(nodes, edges, facets, elements, boundary, reference)
